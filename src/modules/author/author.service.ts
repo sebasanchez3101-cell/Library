@@ -1,9 +1,9 @@
 import { ObjectId } from "mongodb";
-import { Author, AuthorDTO } from "./author.model";
-import { Book } from "../book/book.model";
-import { AuthorRepository } from "./author.repository";
-import { BadRequestError, NotFoundError } from "../../shared/errors/AppError";
 import { getDb } from "../../config/database";
+import { BadRequestError, NotFoundError } from "../../shared/errors/AppError";
+import { Book } from "../book/book.model";
+import { Author, AuthorDTO } from "./author.model";
+import { AuthorRepository } from "./author.repository";
 
 export class AuthorService {
     private readonly authorRepository = new AuthorRepository();
@@ -32,10 +32,13 @@ export class AuthorService {
         return this.authorRepository.findAll();
     }
 
-    async findById(id: string): Promise<Author> {
-        const author = await this.authorRepository.findById(this.toObjectId(id));
+    async findById(id: string): Promise<Author & { books: Book[] }> {
+        const objectId = this.toObjectId(id);
+        const author = await this.authorRepository.findById(objectId);
         if (!author) throw new NotFoundError("Autor no encontrado");
-        return author;
+
+        const books = await getDb().collection<Book>("books").find({ authorId: objectId }).toArray();
+        return { ...author, books };
     }
 
     async update(id: string, data: AuthorDTO): Promise<Author> {

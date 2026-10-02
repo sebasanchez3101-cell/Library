@@ -1,8 +1,8 @@
 import { ObjectId } from "mongodb";
-import { Book, BookDTO } from "./book.model";
-import { BookRepository } from "./book.repository";
-import { BadRequestError, NotFoundError } from "../../shared/errors/AppError";
 import { getDb } from "../../config/database";
+import { BadRequestError, NotFoundError } from "../../shared/errors/AppError";
+import { Book, BookDTO, BookWithAuthor } from "./book.model";
+import { BookRepository } from "./book.repository";
 
 export class BookService {
     private readonly bookRepository = new BookRepository();
@@ -31,16 +31,16 @@ export class BookService {
         });
     }
 
-    async findAll(available?: string): Promise<Book[]> {
+    async findAll(available?: string): Promise<BookWithAuthor[]> {
         const filter: Record<string, unknown> = {};
         if (available !== undefined) {
             filter.available = available === "true";
         }
-        return this.bookRepository.findAll(filter);
+        return this.bookRepository.findAllWithAuthor();
     }
 
-    async findById(id: string): Promise<Book> {
-        const book = await this.bookRepository.findById(this.toObjectId(id));
+    async findById(id: string): Promise<BookWithAuthor> {
+        const book = await this.bookRepository.findByIdWithAuthor(this.toObjectId(id));
         if (!book) throw new NotFoundError("Libro no encontrado");
         return book;
     }

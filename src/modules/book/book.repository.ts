@@ -1,12 +1,52 @@
 import { Collection, ObjectId } from "mongodb";
 import { getDb } from "../../config/database";
-import { Book } from "./book.model";
+import { Book, BookWithAuthor } from "./book.model";
 
 export class BookRepository {
     private collection(): Collection<Book> {
         return getDb().collection<Book>("books");
     }
 
+      private authorLookupStages(): object[] {
+        return [
+            {
+                $lookup: {
+                    from: "authors",
+                    localField: "authorId",
+                    foreignField: "_id",
+                    as: "author",
+                },
+            },
+            {
+                $unwind: {
+                    path: "$author",
+                    preserveNullAndEmptyArrays: true,
+                },
+            },
+            {
+                // Se omite authorId de la respuesta: el autor ya viene embebido.
+                $project: { authorId: 0 },
+            },
+        ];
+    }
+    async findAllWithAuthor(): Promise<BookWithAuthor[]> {
+        return this.collection()
+            .aggregate<BookWithAuthor>([
+                ...this.authorLookupStages(),
+                { $sort: { createdAt: -1 } },
+            ])
+            .toArray();
+    }
+
+    async findByIdWithAuthor(id: ObjectId): Promise<BookWithAuthor | null> {
+        const result = await this.collection()
+            .aggregate<BookWithAuthor>([
+                { $match: { _id: id } },
+                ...this.authorLookupStages(),
+            ])
+            .toArray();
+        return result[0] ?? null;
+    }
     async create(data: Omit<Book, "_id">): Promise<Book> {
         const result = await this.collection().insertOne(data as Book);
         return { _id: result.insertedId, ...data };

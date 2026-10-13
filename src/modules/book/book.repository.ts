@@ -1,13 +1,13 @@
 import { Collection, ObjectId } from "mongodb";
 import { getDb } from "../../config/database";
-import { Book, BookWithAuthor } from "./book.model";
+import { Book, BookWithDetails } from "./book.model";
 
 export class BookRepository {
     private collection(): Collection<Book> {
         return getDb().collection<Book>("books");
     }
 
-      private authorLookupStages(): object[] {
+        private detailsLookupStages(): object[] {
         return [
             {
                 $lookup: {
@@ -24,29 +24,41 @@ export class BookRepository {
                 },
             },
             {
-                // Se omite authorId de la respuesta: el autor ya viene embebido.
-                $project: { authorId: 0 },
+                $lookup: {
+                    from: "genres",
+                    localField: "genreId",
+                    foreignField: "_id",
+                    as: "genre",
+                },
+            },
+            {
+                $unwind: {
+                    path: "$genre",
+                    preserveNullAndEmptyArrays: true,
+                },
             },
         ];
     }
-    async findAllWithAuthor(): Promise<BookWithAuthor[]> {
+    async findAllWithDetails(filter: Record<string, unknown> = {}): Promise<BookWithDetails[]> {
         return this.collection()
-            .aggregate<BookWithAuthor>([
-                ...this.authorLookupStages(),
+            .aggregate<BookWithDetails>([
+                { $match: filter },
+                ...this.detailsLookupStages(),
                 { $sort: { createdAt: -1 } },
             ])
             .toArray();
     }
 
-    async findByIdWithAuthor(id: ObjectId): Promise<BookWithAuthor | null> {
+    async findByIdWithDetails(id: ObjectId): Promise<BookWithDetails | null> {
         const result = await this.collection()
-            .aggregate<BookWithAuthor>([
+            .aggregate<BookWithDetails>([
                 { $match: { _id: id } },
-                ...this.authorLookupStages(),
+                ...this.detailsLookupStages(),
             ])
             .toArray();
         return result[0] ?? null;
     }
+
     async create(data: Omit<Book, "_id">): Promise<Book> {
         const result = await this.collection().insertOne(data as Book);
         return { _id: result.insertedId, ...data };

@@ -1,7 +1,7 @@
 import { ObjectId } from "mongodb";
 import { getDb } from "../../config/database";
 import { BadRequestError, NotFoundError } from "../../shared/errors/AppError";
-import { Book, BookDTO, BookWithAuthor } from "./book.model";
+import { Book, BookDTO, BookWithDetails } from "./book.model";
 import { BookRepository } from "./book.repository";
 
 export class BookService {
@@ -12,9 +12,13 @@ export class BookService {
         const isbn = this.requireString(data?.isbn, "isbn");
         const authorIdStr = this.requireString(data?.authorId, "authorId");
         const authorId = this.toObjectId(authorIdStr);
+        const genreId = this.toObjectId(this.requireString(data?.genreId, "genreId"));
 
         const author = await getDb().collection("authors").findOne({ _id: authorId });
         if (!author) throw new NotFoundError("El autor especificado no existe");
+
+        const genre = await getDb().collection("genres").findOne({ _id: genreId });
+        if (!genre) throw new NotFoundError("El género especificado no existe");
 
         const existingIsbn = await this.bookRepository.findByIsbn(isbn);
         if (existingIsbn) throw new BadRequestError("El ISBN ya se encuentra registrado");
@@ -24,6 +28,7 @@ export class BookService {
             title,
             isbn,
             authorId,
+            genreId,
             year: data.year,
             available: true,
             createdAt: now,
@@ -31,16 +36,16 @@ export class BookService {
         });
     }
 
-    async findAll(available?: string): Promise<BookWithAuthor[]> {
+    async findAll(available?: string): Promise<BookWithDetails[]> {
         const filter: Record<string, unknown> = {};
         if (available !== undefined) {
             filter.available = available === "true";
         }
-        return this.bookRepository.findAllWithAuthor();
+        return this.bookRepository.findAllWithDetails(filter);
     }
 
-    async findById(id: string): Promise<BookWithAuthor> {
-        const book = await this.bookRepository.findByIdWithAuthor(this.toObjectId(id));
+    async findById(id: string): Promise<BookWithDetails> {
+        const book = await this.bookRepository.findByIdWithDetails(this.toObjectId(id));
         if (!book) throw new NotFoundError("Libro no encontrado");
         return book;
     }
@@ -63,6 +68,12 @@ export class BookService {
             const author = await getDb().collection("authors").findOne({ _id: authorId });
             if (!author) throw new NotFoundError("El autor especificado no existe");
             changes.authorId = authorId;
+        }
+        if (data.genreId !== undefined) {
+            const genreId = this.toObjectId(this.requireString(data.genreId, "genreId"));
+            const genre = await getDb().collection("genres").findOne({ _id: genreId });
+            if (!genre) throw new NotFoundError("El género especificado no existe");
+            changes.genreId = genreId;
         }
         if (data.year !== undefined) changes.year = data.year;
         if (data.available !== undefined) changes.available = data.available;

@@ -37,6 +37,14 @@ export class BookRepository {
                     preserveNullAndEmptyArrays: true,
                 },
             },
+            {
+                project: {
+                    authorID: 0,
+                    genresIds:0,
+                    "author_id":0,
+                    "genres_id":0,
+                },
+            },
         ];
     }
     async findAllWithDetails(filter: Record<string, unknown> = {}): Promise<BookWithDetails[]> {

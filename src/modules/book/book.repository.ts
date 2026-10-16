@@ -41,8 +41,8 @@ export class BookRepository {
                 $project: {
                     authorID: 0,
                     genresIds:0,
-                    "author_id":0,
-                    "genres_id":0,
+                    "author._id":0,
+                    "genre._id":0,
                 },
             },
         ];
